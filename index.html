@@ -4,7 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F3F4F5">
+<meta name="color-scheme" content="light">
 <title>HabitBoard</title>
+<link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -13,6 +15,8 @@
     <h1 id="greeting">Hello</h1>
     <p class="date" id="date"></p>
   </header>
+
+  <div class="banner" id="banner" role="status" hidden></div>
 
   <section class="panel progress" aria-label="Daily progress">
     <div class="dial" id="dial" role="progressbar" aria-label="Today's completion"
@@ -48,12 +52,12 @@
 
   <section class="panel" aria-labelledby="n-h">
     <h2 class="label" id="n-h">Daily note</h2>
-    <textarea class="note" id="note" rows="3" aria-labelledby="n-h"
+    <textarea class="note" id="note" rows="3" maxlength="5000" aria-labelledby="n-h"
               placeholder="Write a plan or a thought for today"></textarea>
   </section>
 </main>
 
-<button class="add" id="add" type="button" aria-label="Add task">
+<button class="add" id="add" type="button" aria-label="Add task or habit">
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
        stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
     <path d="M12 5v14M5 12h14"/>
@@ -63,10 +67,16 @@
 <dialog id="dlg" aria-labelledby="d-h">
   <form id="form">
     <h2 class="label" id="d-h">New task</h2>
+    <label class="field" id="f-type">Type
+      <select id="t-type">
+        <option value="task" selected>Task</option>
+        <option value="habit">Habit</option>
+      </select>
+    </label>
     <label class="field">Title
       <input id="t-title" required maxlength="80" autocomplete="off">
     </label>
-    <label class="field">Priority
+    <label class="field" id="f-prio">Priority
       <select id="t-prio">
         <option value="1">Low</option>
         <option value="2" selected>Medium</option>
@@ -74,13 +84,13 @@
       </select>
     </label>
     <div class="actions">
+      <button class="btn danger" type="button" id="delete" hidden>Delete</button>
       <button class="btn" type="button" id="cancel">Cancel</button>
-      <button class="btn" type="submit">Add task</button>
+      <button class="btn" type="submit" id="save">Add task</button>
     </div>
   </form>
 </dialog>
 
 <script src="js/app.js"></script>
 </body>
-<
-  /html>
+</html>

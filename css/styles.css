@@ -22,13 +22,16 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body, h1, h2, p, ul { margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   background: var(--bg);
   color: var(--text);
   font: 400 1rem/1.4 system-ui, "Roboto", sans-serif;
+  min-height: 100vh;
   min-height: 100dvh;
+  touch-action: manipulation;
 }
 :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 
@@ -37,7 +40,8 @@ body {
   margin: 0 auto;
   display: grid;
   gap: 20px;
-  padding: max(24px, env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom));
+  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+           calc(112px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
 
 h1 { font-size: 1.5rem; font-weight: 700; }
@@ -55,6 +59,12 @@ h1 { font-size: 1.5rem; font-weight: 700; }
   box-shadow: var(--sh-l2);
 }
 .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+
+/* Storage / data notice */
+.banner {
+  background: var(--well); box-shadow: var(--sh-in); border-radius: 12px;
+  padding: 12px 14px; font-size: .875rem; font-weight: 500; color: var(--status-overdue);
+}
 
 /* Progress dial */
 .progress { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
@@ -80,14 +90,28 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 
 /* Lists and rows */
 .list { list-style: none; }
-.row { border-top: 1px solid var(--divider); }
+.row {
+  border-top: 1px solid var(--divider);
+  display: flex; align-items: center; gap: 4px;
+}
 .row:first-child { border-top: 0; }
 .row-main {
+  flex: 1; min-width: 0;
   display: flex; align-items: center; gap: 14px;
   min-height: 56px; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .row-text { flex: 1; min-width: 0; display: grid; }
 .title { font-weight: 500; overflow-wrap: anywhere; }
+.empty { padding: 16px 0 6px; }
+
+/* Edit button on each row */
+.icon-btn {
+  flex: none; width: 44px; height: 44px; border: 0; border-radius: 12px;
+  background: none; color: var(--text-2-ui); cursor: pointer;
+  display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
+}
+.icon-btn:active { background: var(--well); box-shadow: var(--sh-in); }
+@media (hover: hover) { .icon-btn:hover { color: var(--text); } }
 
 /* Task checkbox */
 .box {
@@ -147,6 +171,7 @@ h1 { font-size: 1.5rem; font-weight: 700; }
   -webkit-tap-highlight-color: transparent;
 }
 .btn { min-height: 48px; padding: 0 20px; border-radius: 12px; font: 600 .9375rem system-ui, "Roboto", sans-serif; box-shadow: var(--sh-l1); }
+.btn.danger { color: var(--status-overdue); margin-right: auto; }
 .add {
   position: fixed; z-index: 2; width: 60px; height: 60px; border-radius: 50%;
   bottom: calc(16px + env(safe-area-inset-bottom));
@@ -157,16 +182,17 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 .add:active { transform: scale(.97); }
 @media (hover: hover) { .btn:hover, .add:hover { background: #fff; } }
 
-/* Add-task dialog */
+/* Add / edit dialog */
 dialog {
   border: 0; border-radius: 20px; padding: 20px; color: var(--text);
   width: min(400px, calc(100% - 32px)); background: var(--panel); box-shadow: var(--sh-l2);
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto;
 }
 dialog::backdrop { background: rgba(65, 67, 71, .3); }
 .field { display: grid; gap: 6px; margin-top: 16px; font-size: .875rem; font-weight: 600; }
 .field input, .field select { min-height: 48px; padding: 0 12px; font-weight: 400; }
-.actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
-       }
+  }

@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="light">
 <title>HabitBoard</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/styles.css?v=2">
 </head>
 <body>
 <main class="screen">
@@ -16,10 +16,30 @@
     <p class="date" id="date"></p>
   </header>
 
+  <nav class="panel datebar" aria-label="Choose date">
+    <button class="btn nav" id="prev" type="button" aria-label="Previous day">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6"/>
+      </svg>
+    </button>
+    <button class="date-btn" id="date-open" type="button" aria-haspopup="dialog">
+      <span class="label" id="d-rel">Today</span>
+      <span class="d-full" id="d-full"></span>
+    </button>
+    <button class="btn nav" id="next" type="button" aria-label="Next day">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 6l6 6-6 6"/>
+      </svg>
+    </button>
+    <button class="btn slim" id="today" type="button">Today</button>
+  </nav>
+
   <div class="banner" id="banner" role="status" hidden></div>
 
   <section class="panel progress" aria-label="Daily progress">
-    <div class="dial" id="dial" role="progressbar" aria-label="Today's completion"
+    <div class="dial" id="dial" role="progressbar" aria-label="Completion for the selected day"
          aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <svg id="ticks" viewBox="0 0 140 140" aria-hidden="true"></svg>
       <div class="knob">
@@ -28,7 +48,7 @@
       </div>
     </div>
     <div class="summary" aria-live="polite">
-      <h2 class="label">Today</h2>
+      <h2 class="label" id="day-label">Today</h2>
       <p class="big" id="summary"></p>
       <p class="meta" id="split"></p>
     </div>
@@ -51,9 +71,21 @@
   </section>
 
   <section class="panel" aria-labelledby="n-h">
-    <h2 class="label" id="n-h">Daily note</h2>
+    <div class="head">
+      <h2 class="label" id="n-h">Daily note</h2>
+      <span class="save-state" id="save-state" data-state="saved" role="status" aria-live="polite">Saved</span>
+    </div>
     <textarea class="note" id="note" rows="3" maxlength="5000" aria-labelledby="n-h"
-              placeholder="Write a plan or a thought for today"></textarea>
+              placeholder="Write a plan or a thought for this day"></textarea>
+  </section>
+
+  <section class="panel" aria-labelledby="hist-h">
+    <div class="head">
+      <h2 class="label" id="hist-h">Notes history</h2>
+      <span class="meta" id="hist-count"></span>
+    </div>
+    <ul class="list" id="history"></ul>
+    <button class="btn more" id="hist-more" type="button" hidden>Show more</button>
   </section>
 </main>
 
@@ -67,6 +99,7 @@
 <dialog id="dlg" aria-labelledby="d-h">
   <form id="form">
     <h2 class="label" id="d-h">New task</h2>
+    <p class="meta" id="d-sub"></p>
     <label class="field" id="f-type">Type
       <select id="t-type">
         <option value="task" selected>Task</option>
@@ -91,6 +124,33 @@
   </form>
 </dialog>
 
-<script src="js/app.js"></script>
+<dialog id="cal" aria-labelledby="cal-title">
+  <div class="cal-head">
+    <button class="btn nav slim" id="cal-prev" type="button" aria-label="Previous month">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6"/>
+      </svg>
+    </button>
+    <h2 class="label cal-title" id="cal-title" aria-live="polite"></h2>
+    <button class="btn nav slim" id="cal-next" type="button" aria-label="Next month">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 6l6 6-6 6"/>
+      </svg>
+    </button>
+  </div>
+  <div class="cal-week" aria-hidden="true">
+    <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+  <p class="meta cal-legend"><span class="dot" aria-hidden="true"></span> Day has a note</p>
+  <div class="actions">
+    <button class="btn" type="button" id="cal-today">Today</button>
+    <button class="btn" type="button" id="cal-close">Close</button>
+  </div>
+</dialog>
+
+<script src="js/app.js?v=2"></script>
 </body>
 </html>

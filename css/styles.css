@@ -268,6 +268,30 @@ dialog::backdrop { background: rgba(65, 67, 71, .3); }
 .cal-legend { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
 .cal-legend .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--progress); }
 
+/* Backup & restore */
+.bk-help { margin-top: 8px; }
+.bk-actions {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-top: 16px;
+}
+.bk-actions .btn { padding: 0 10px; line-height: 1.2; }
+.bk-msg {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--well); box-shadow: var(--sh-in);
+  font-size: .875rem; font-weight: 500; overflow-wrap: anywhere;
+}
+.bk-msg[data-kind="error"] { color: var(--status-overdue); }
+#rs-file { margin-top: 8px; overflow-wrap: anywhere; }
+.rs-box {
+  margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+  background: var(--well); box-shadow: var(--sh-in);
+}
+.rs-box p { margin-top: 4px; font-size: .9375rem; font-weight: 500; overflow-wrap: anywhere; }
+.rs-warn { margin-top: 12px; }
+.btn.wide { flex: 1 1 100%; }
+.btn.warn { color: var(--status-overdue); }
+#rs-cancel, #rs-go { flex: 1 1 120px; }
+.bk-msg { scroll-margin-bottom: 100px; } /* keeps a scrolled-to message clear of the + button */
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }

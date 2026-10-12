@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="light">
 <title>HabitBoard</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/styles.css?v=2">
+<link rel="stylesheet" href="css/styles.css?v=3">
 </head>
 <body>
 <main class="screen">
@@ -87,6 +87,17 @@
     <ul class="list" id="history"></ul>
     <button class="btn more" id="hist-more" type="button" hidden>Show more</button>
   </section>
+
+  <section class="panel" aria-labelledby="bk-h">
+    <h2 class="label" id="bk-h">Backup &amp; restore</h2>
+    <p class="meta bk-help">Save your tasks, habits and notes to a file, or restore them from one. Everything stays on this device.</p>
+    <div class="bk-actions">
+      <button class="btn" id="export" type="button">Export backup</button>
+      <button class="btn" id="import" type="button">Import backup</button>
+    </div>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
+    <p class="bk-msg" id="bk-msg" role="status" aria-live="polite" hidden></p>
+  </section>
 </main>
 
 <button class="add" id="add" type="button" aria-label="Add task or habit">
@@ -151,6 +162,26 @@
   </div>
 </dialog>
 
-<script src="js/app.js?v=2"></script>
+<dialog id="restore" aria-labelledby="rs-h">
+  <h2 class="label" id="rs-h">Restore this backup?</h2>
+  <p class="meta" id="rs-file"></p>
+  <div class="rs-box">
+    <span class="label">In the backup</span>
+    <p id="rs-new"></p>
+  </div>
+  <div class="rs-box">
+    <span class="label">On this device now</span>
+    <p id="rs-cur"></p>
+  </div>
+  <p class="meta rs-warn">Restoring replaces everything HabitBoard has saved on this device. This cannot be undone.</p>
+  <p class="bk-msg" id="rs-msg" role="status" aria-live="polite" hidden></p>
+  <div class="actions">
+    <button class="btn wide" type="button" id="rs-keep">Download current data first</button>
+    <button class="btn" type="button" id="rs-cancel">Cancel</button>
+    <button class="btn warn" type="button" id="rs-go">Replace my data</button>
+  </div>
+</dialog>
+
+<script src="js/app.js?v=3"></script>
 </body>
 </html>

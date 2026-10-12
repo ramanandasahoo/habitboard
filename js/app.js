@@ -1,5 +1,6 @@
 /* HabitBoard: tasks, habits, daily completions and dated notes, saved in localStorage.
-   Version 2 adds a date selector, a calendar and a notes history. */
+   Version 2 added a date selector, a calendar and a notes history.
+   Version 3 adds backup export and restore. */
 (function () {
   'use strict';
 
@@ -632,6 +633,211 @@
     resetDelete();
   });
 
+  /* ---------- Backup & restore ----------
+     Export writes a JSON file made on this device (no server). Import reads a file the
+     person picks, checks it completely, asks for confirmation, and only then replaces the
+     saved data. Nothing is written to storage until every check has passed. */
+  var BACKUP_APP = 'HabitBoard';
+  var BACKUP_FORMAT = 1;                  // version of the backup file wrapper
+  var MAX_BACKUP_BYTES = 5 * 1024 * 1024; // browsers keep about 5 MB, so a bigger file cannot be restored
+  var bkMsg = $('bk-msg'), rsMsg = $('rs-msg');
+  var rdlg = $('restore');
+  var fileInput = $('import-file');
+  var pendingRestore = null;              // validated data waiting for the person to confirm
+
+  function hasOwn(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+  function say(target, text, kind) {
+    target.textContent = text;
+    target.dataset.kind = kind;
+    target.hidden = false;
+    if (target.scrollIntoView) target.scrollIntoView({ block: 'end' }); // keep the message in view, clear of the + button
+  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+  function describe(s) {
+    var notes = Object.keys(s.notes).filter(function (k) { return s.notes[k].trim() !== ''; }).length;
+    var days = Object.keys(s.log).length;
+    return plural(s.tasks.length, 'task', 'tasks') + ', ' + plural(s.habits.length, 'habit', 'habits') + ', ' +
+      plural(notes, 'note', 'notes') + ', ' + plural(days, 'day of habit history', 'days of habit history');
+  }
+  function fmtExported(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : d.toLocaleString(undefined,
+      { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  /* Export: the whole saved state, wrapped with a few labels so the file can be recognised later. */
+  function exportBackup(target) {
+    try {
+      flushNote(); // include a note that is still being typed
+      var name = 'habitboard-backup-' + todayKey() + '.json';
+      var payload = {
+        app: BACKUP_APP,
+        backupFormat: BACKUP_FORMAT,
+        storageKey: STORAGE_KEY,
+        exportedAt: new Date().toISOString(),
+        data: state
+      };
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = el('a');
+      a.href = url;
+      a.download = name;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+      say(target, 'Backup created: ' + name + ' (' + describe(state) + '). Look for it in your Downloads folder.', 'ok');
+      return true;
+    } catch (e) {
+      say(target, 'Could not create the backup file. Nothing was changed.', 'error');
+      return false;
+    }
+  }
+
+  /* Validation: returns '' when the data is usable, otherwise a plain-language reason. */
+  function isDateText(v) { return typeof v === 'string' && DATE_RE.test(v); }
+  function isWholeNumber(v) { return typeof v === 'number' && isFinite(v) && Math.floor(v) === v && v >= 1; }
+
+  function checkData(p) {
+    var i, t, h, keys, ids = {};
+    if (p.version !== undefined) {
+      if (!isWholeNumber(p.version)) return 'The data has an invalid version number.';
+      if (p.version > SCHEMA_VERSION) return 'The data was saved by a newer version of HabitBoard.';
+    }
+    if (!Array.isArray(p.tasks)) return 'The list of tasks is missing.';
+    if (!Array.isArray(p.habits)) return 'The list of habits is missing.';
+    if (!isPlainObject(p.log)) return 'The habit history is missing.';
+    if (!isPlainObject(p.notes)) return 'The notes are missing.';
+
+    for (i = 0; i < p.tasks.length; i++) {
+      t = p.tasks[i];
+      if (!isPlainObject(t) || typeof t.title !== 'string' || !t.title.trim()) return 'Task ' + (i + 1) + ' has no title.';
+      if (t.priority !== undefined && !(typeof t.priority === 'number' && t.priority >= 1 && t.priority <= 3)) {
+        return 'Task ' + (i + 1) + ' has an invalid priority.';
+      }
+      if (t.done !== undefined && typeof t.done !== 'boolean') return 'Task ' + (i + 1) + ' has an invalid done value.';
+      if (t.date !== undefined && !isDateText(t.date)) return 'Task ' + (i + 1) + ' has an invalid date.';
+      if (t.doneAt !== undefined && !isDateText(t.doneAt)) return 'Task ' + (i + 1) + ' has an invalid completion date.';
+    }
+    for (i = 0; i < p.habits.length; i++) {
+      h = p.habits[i];
+      if (!isPlainObject(h) || typeof h.name !== 'string' || !h.name.trim()) return 'Habit ' + (i + 1) + ' has no name.';
+      if (h.id !== undefined) {
+        if (typeof h.id !== 'string' && typeof h.id !== 'number') return 'Habit ' + (i + 1) + ' has an invalid id.';
+        if (ids['id:' + h.id]) return 'Two habits share the same id.';
+        ids['id:' + h.id] = true;
+      }
+    }
+    keys = Object.keys(p.log);
+    for (i = 0; i < keys.length; i++) {
+      var list = p.log[keys[i]];
+      if (!Array.isArray(list)) return 'The habit history for ' + keys[i] + ' is not a list.';
+      for (var j = 0; j < list.length; j++) {
+        if (typeof list[j] !== 'string' && typeof list[j] !== 'number') return 'The habit history for ' + keys[i] + ' is invalid.';
+      }
+    }
+    keys = Object.keys(p.notes);
+    for (i = 0; i < keys.length; i++) {
+      if (typeof p.notes[keys[i]] !== 'string') return 'The note for ' + keys[i] + ' is not text.';
+    }
+    return '';
+  }
+
+  /* Accepts a HabitBoard backup file, or the bare data object stored under habitboard:v1. */
+  function parseBackup(text) {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // ignore a byte-order mark
+    var root;
+    try { root = JSON.parse(text); }
+    catch (e) { return { error: 'The file is not valid JSON, so it is not a HabitBoard backup.' }; }
+    if (!isPlainObject(root)) return { error: 'The file does not have the structure of a HabitBoard backup.' };
+
+    var payload = root, exportedAt = '';
+    if (hasOwn(root, 'app') || hasOwn(root, 'backupFormat') || hasOwn(root, 'data')) {
+      if (root.app !== BACKUP_APP) return { error: 'The file was not created by HabitBoard.' };
+      if (!isWholeNumber(root.backupFormat)) return { error: 'The backup file has no valid format number.' };
+      if (root.backupFormat > BACKUP_FORMAT) return { error: 'The backup was made by a newer version of HabitBoard.' };
+      if (!isPlainObject(root.data)) return { error: 'The backup file contains no data.' };
+      payload = root.data;
+      if (typeof root.exportedAt === 'string') exportedAt = root.exportedAt;
+    }
+    var problem = checkData(payload);
+    if (problem) return { error: problem };
+    return { data: normalize(payload), exportedAt: exportedAt }; // normalize keeps unknown fields
+  }
+
+  /* Restore: writes the new data, checks it was stored, and only then switches the app over.
+     If anything goes wrong the old data stays exactly as it was. */
+  function applyRestore(next) {
+    if (!storageReadable) return 'Saving is unavailable in this browser, so a restored backup could not be kept.';
+    var text = JSON.stringify(next);
+    var previous = storageGet(STORAGE_KEY);
+    if (!storageSet(STORAGE_KEY, text)) return 'The browser could not store the backup. Storage may be full or blocked.';
+    if (storageGet(STORAGE_KEY) !== text) { // confirm what was written is what we meant to write
+      if (previous !== null) storageSet(STORAGE_KEY, previous);
+      return 'The backup could not be stored correctly.';
+    }
+    state = next;
+    dirty = false;
+    if (bannerKind === 'save' || bannerKind === 'data') hideBanner();
+    checkNewDay();
+    selectedDay = todayDay;
+    historyLimit = 10;
+    renderAll();
+    return '';
+  }
+
+  function failMsg(reason) { return 'Restore failed: ' + reason + ' Your current data was not changed.'; }
+
+  function openRestoreDialog(fileName, result) {
+    flushNote(); // so the "now" counts include a note that is still being typed
+    pendingRestore = result.data;
+    var when = result.exportedAt ? fmtExported(result.exportedAt) : '';
+    $('rs-file').textContent = fileName + (when ? ' \u00B7 exported ' + when : '');
+    $('rs-new').textContent = describe(result.data);
+    $('rs-cur').textContent = describe(state);
+    rsMsg.textContent = '';
+    rsMsg.hidden = true;
+    openModal(rdlg);
+  }
+
+  $('export').addEventListener('click', function () { exportBackup(bkMsg); });
+  $('import').addEventListener('click', function () { fileInput.click(); });
+
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (file.size === 0) { fileInput.value = ''; say(bkMsg, failMsg('The file is empty.'), 'error'); return; }
+    if (file.size > MAX_BACKUP_BYTES) {
+      fileInput.value = '';
+      say(bkMsg, failMsg('The file is larger than 5 MB, which is more than this browser can store.'), 'error');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onerror = function () { fileInput.value = ''; say(bkMsg, failMsg('The file could not be read.'), 'error'); };
+    reader.onload = function () {
+      fileInput.value = ''; // lets the same file be chosen again later
+      var result = parseBackup(String(reader.result));
+      if (result.error) { say(bkMsg, failMsg(result.error), 'error'); return; }
+      openRestoreDialog(file.name, result);
+    };
+    reader.readAsText(file);
+  });
+
+  $('rs-go').addEventListener('click', function () {
+    var next = pendingRestore;
+    pendingRestore = null;
+    closeModal(rdlg);
+    if (!next) return;
+    flushNote();
+    var reason = applyRestore(next);
+    if (reason) say(bkMsg, failMsg(reason), 'error');
+    else say(bkMsg, 'Backup restored: ' + describe(state) + '.', 'ok');
+  });
+  $('rs-cancel').addEventListener('click', function () { pendingRestore = null; closeModal(rdlg); });
+  $('rs-keep').addEventListener('click', function () { exportBackup(rsMsg); });
+  rdlg.addEventListener('close', function () { pendingRestore = null; });
+
   /* ---------- Refresh when the page comes back, or the real date changes ---------- */
   function refreshFromStorage() {
     if (!storageReadable || dirty || noteTimer !== null) return;
@@ -648,7 +854,7 @@
     if (followToday) selectedDay = t;
   }
   function refresh() {
-    if (dlg.open || cal.open) return; // do not rebuild lists under an open dialog
+    if (dlg.open || cal.open || rdlg.open) return; // do not rebuild lists under an open dialog
     checkNewDay();
     refreshFromStorage();
     renderAll();

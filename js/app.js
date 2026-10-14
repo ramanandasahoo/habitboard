@@ -1,6 +1,7 @@
 /* HabitBoard: tasks, habits, daily completions and dated notes, saved in localStorage.
    Version 2 added a date selector, a calendar and a notes history.
-   Version 3 adds backup export and restore. */
+   Version 3 adds backup export and restore.
+   Version 4 adds installable app / offline support (see sw.js). */
 (function () {
   'use strict';
 
@@ -869,8 +870,25 @@
     if (todayKey() !== todayDay) { flushNote(); refresh(); }
   }, 60000);
 
+  /* ---------- Offline support (installable app) ----------
+     Registers sw.js so the app can open without a connection. It only stores the app's own
+     files, never your saved data, and if anything goes wrong the website keeps working
+     online exactly as before. */
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+    function register() {
+      try {
+        navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' })
+          .catch(function () { /* offline support is unavailable; the app is unaffected */ });
+      } catch (e) { /* ignore */ }
+    }
+    if (document.readyState === 'complete') register();
+    else window.addEventListener('load', register);
+  }
+
   /* ---------- Start ---------- */
   state = loadState();
   buildTicks();
   renderAll();
+  registerServiceWorker();
 })();

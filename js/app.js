@@ -2,7 +2,8 @@
    Version 2 added a date selector, a calendar and a notes history.
    Version 3 adds backup export and restore.
    Version 4 adds installable app / offline support (see sw.js).
-   Version 5 adds a read-only weekly statistics dashboard. */
+   Version 5 adds a read-only weekly statistics dashboard.
+   Version 6 makes the weekly overall figure the average of the task rate and habit rate. */
 (function () {
   'use strict';
 
@@ -472,11 +473,17 @@
       return { name: h.name, done: done, eligible: elig, pct: pctOf(done, elig) };
     });
 
+    // Overall: tasks and habits count equally. Each side uses its own (unchanged) rate.
+    var tPct = pctOf(tDone, tTotal), hPct = pctOf(hDone, hElig);
+    var oPct = null, oBasis = null;
+    if (tPct !== null && hPct !== null) { oPct = Math.round((tPct + hPct) / 2); oBasis = 'both'; }
+    else if (tPct !== null) { oPct = tPct; oBasis = 'tasks'; }   // no habit days to count
+    else if (hPct !== null) { oPct = hPct; oBasis = 'habits'; }  // no tasks to count
+
     return {
       start: start, end: end, days: perDay, habits: habits,
       tDone: tDone, tTotal: tTotal, hDone: hDone, hElig: hElig,
-      tPct: pctOf(tDone, tTotal), hPct: pctOf(hDone, hElig),
-      oPct: pctOf(tDone + hDone, tTotal + hElig)
+      tPct: tPct, hPct: hPct, oPct: oPct, oBasis: oBasis
     };
   }
 
@@ -587,6 +594,9 @@
     $('st-hpct-s').textContent = cur.hElig
       ? cur.hDone + ' of ' + cur.hElig + (cur.hElig === 1 ? ' habit day' : ' habit days') : 'No habits counted';
     $('st-opct').textContent = pctText(cur.oPct);
+    $('st-opct-s').textContent = cur.oBasis === 'both' ? 'Average of task rate and habit rate'
+      : cur.oBasis === 'tasks' ? 'Tasks only: no habit days counted'
+      : cur.oBasis === 'habits' ? 'Habits only: no tasks this week' : '';
     $('st-live').hidden = !(cur.end >= todayDay);
 
     renderChart(cur);

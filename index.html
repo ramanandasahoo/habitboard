@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="css/styles.css?v=3">
+<link rel="stylesheet" href="css/styles.css?v=4">
 </head>
 <body>
 <main class="screen">
@@ -91,6 +91,71 @@
     </div>
     <ul class="list" id="history"></ul>
     <button class="btn more" id="hist-more" type="button" hidden>Show more</button>
+  </section>
+
+  <section class="panel" aria-labelledby="st-h">
+    <div class="head">
+      <h2 class="label" id="st-h">Weekly statistics</h2>
+    </div>
+
+    <div class="wk-nav">
+      <button class="btn nav" id="wk-prev" type="button" aria-label="Previous week">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M15 6l-6 6 6 6"/>
+        </svg>
+      </button>
+      <div class="wk-range-box" aria-live="polite">
+        <span class="label" id="wk-rel">This week</span>
+        <span class="d-full" id="wk-range"></span>
+      </div>
+      <button class="btn nav" id="wk-next" type="button" aria-label="Next week">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 6l6 6-6 6"/>
+        </svg>
+      </button>
+      <button class="btn slim" id="wk-now" type="button">Current week</button>
+    </div>
+
+    <p class="empty meta" id="st-empty" hidden></p>
+
+    <div id="st-body">
+      <p class="meta st-live" id="st-live" hidden>This week is still in progress, so these figures can change.</p>
+
+      <div class="st-tiles">
+        <div class="tile"><span class="label">Tasks done</span><span class="tv" id="st-tdone">0</span></div>
+        <div class="tile"><span class="label">Tasks scheduled</span><span class="tv" id="st-ttotal">0</span></div>
+        <div class="tile"><span class="label">Task rate</span><span class="tv" id="st-tpct">0%</span><span class="meta" id="st-tpct-s"></span></div>
+        <div class="tile"><span class="label">Habit rate</span><span class="tv" id="st-hpct">0%</span><span class="meta" id="st-hpct-s"></span></div>
+        <div class="tile wide"><span class="label">Overall week</span><span class="tv" id="st-opct">0%</span><span class="meta">Tasks and habits combined</span></div>
+      </div>
+
+      <h3 class="label st-sub-h">Tasks by day</h3>
+      <ul class="st-chart" id="st-chart"></ul>
+      <p class="meta st-legend">
+        <span><i class="key key-total" aria-hidden="true"></i>On the list</span>
+        <span><i class="key key-done" aria-hidden="true"></i>Done</span>
+      </p>
+
+      <h3 class="label st-sub-h">Habits</h3>
+      <ul class="list" id="st-habits"></ul>
+
+      <h3 class="label st-sub-h">Compared with the previous week</h3>
+      <ul class="st-cmp" id="st-cmp"></ul>
+    </div>
+
+    <details class="st-note">
+      <summary>How this is counted</summary>
+      <ul>
+        <li>Weeks run Sunday to Saturday, using this phone's dates.</li>
+        <li>A task counts once per week if it was on your list on any day of that week: scheduled that week, or carried over unfinished from an earlier day. It counts as done in the week you ticked it.</li>
+        <li>Tasks ticked on a future date are not counted as done.</li>
+        <li>A habit day counts as done only if your habit history has that date. Days after today, and days before you added the habit, are not counted.</li>
+        <li>Overall = (tasks done + habit days done) divided by (tasks scheduled + habit days counted).</li>
+        <li>Deleting a task or habit also removes it from the statistics.</li>
+      </ul>
+    </details>
   </section>
 
   <section class="panel" aria-labelledby="bk-h">
@@ -187,6 +252,6 @@
   </div>
 </dialog>
 
-<script src="js/app.js?v=4"></script>
+<script src="js/app.js?v=5"></script>
 </body>
 </html>

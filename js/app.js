@@ -1,7 +1,8 @@
 /* HabitBoard: tasks, habits, daily completions and dated notes, saved in localStorage.
    Version 2 added a date selector, a calendar and a notes history.
    Version 3 adds backup export and restore.
-   Version 4 adds installable app / offline support (see sw.js). */
+   Version 4 adds installable app / offline support (see sw.js).
+   Version 5 adds a read-only weekly statistics dashboard. */
 (function () {
   'use strict';
 
@@ -418,6 +419,187 @@
     if (h && h.scrollIntoView) h.scrollIntoView({ block: 'start' });
   }
 
+  /* ---------- Weekly statistics (read-only: never changes saved data) ----------
+     Weeks run Sunday to Saturday, like the calendar. Everything is worked out from the
+     saved tasks and habit history using the device's local dates. */
+  var DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  var statsWeek = weekStartOf(todayDay); // first day (Sunday) of the week being viewed
+
+  function weekStartOf(key) { return addDays(key, -parseKey(key).getDay()); }
+  function pctOf(part, whole) { return whole > 0 ? Math.round(part / whole * 100) : null; }
+
+  function computeWeek(start) {
+    var days = [], i;
+    for (i = 0; i < 7; i++) days.push(addDays(start, i));
+    var end = days[6];
+    var cap = end < todayDay ? end : todayDay; // nothing after today counts as done
+
+    // Chart: what the daily dial shows for each day (tasks on that day's list)
+    var perDay = days.map(function (day) {
+      var total = 0, done = 0;
+      state.tasks.forEach(function (t) {
+        var v = taskView(t, day);
+        if (!v.shown) return;
+        total++;
+        if (v.eff !== null && v.eff <= day && v.eff <= todayDay) done++;
+      });
+      return { day: day, total: total, done: done, future: day > todayDay };
+    });
+
+    // Week totals: each task is counted once, however many days it was on the list
+    var tTotal = 0, tDone = 0;
+    state.tasks.forEach(function (t) {
+      var onList = false;
+      for (var j = 0; j < 7 && !onList; j++) onList = taskView(t, days[j]).shown;
+      if (!onList) return;
+      tTotal++;
+      var eff = taskView(t, end).eff; // the day it was ticked, or null
+      if (eff !== null && eff <= cap) tDone++;
+    });
+
+    // Habits: a day counts as done only if the saved history has that date
+    var hDone = 0, hElig = 0;
+    var habits = state.habits.map(function (h) {
+      var created = (typeof h.createdAt === 'number' && isFinite(h.createdAt)) ?
+        dateKey(new Date(h.createdAt)) : null;
+      var done = 0, elig = 0;
+      days.forEach(function (day) {
+        if (day > todayDay) return;                          // future days are not counted
+        if (habitDone(day, h.id)) { done++; elig++; }
+        else if (created === null || day >= created) elig++; // days before it existed are not misses
+      });
+      hDone += done; hElig += elig;
+      return { name: h.name, done: done, eligible: elig, pct: pctOf(done, elig) };
+    });
+
+    return {
+      start: start, end: end, days: perDay, habits: habits,
+      tDone: tDone, tTotal: tTotal, hDone: hDone, hElig: hElig,
+      tPct: pctOf(tDone, tTotal), hPct: pctOf(hDone, hElig),
+      oPct: pctOf(tDone + hDone, tTotal + hElig)
+    };
+  }
+
+  function fmtRange(a, b) {
+    var sameYear = a.slice(0, 4) === b.slice(0, 4);
+    var left = parseKey(a).toLocaleDateString(undefined,
+      sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+    var right = parseKey(b).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    return left + ' \u2013 ' + right;
+  }
+  function weekRel(start) {
+    var n = Math.round(dayDiff(start, weekStartOf(todayDay)) / 7);
+    if (n === 0) return 'This week';
+    if (n === -1) return 'Last week';
+    if (n === 1) return 'Next week';
+    return n < 0 ? (-n) + ' weeks ago' : 'In ' + n + ' weeks';
+  }
+  function pctText(p) { return p === null ? '\u2014' : p + '%'; }
+
+  function renderChart(cur) {
+    var ul = $('st-chart'), max = 1;
+    ul.textContent = '';
+    cur.days.forEach(function (d) { if (d.total > max) max = d.total; });
+    cur.days.forEach(function (d) {
+      var dt = parseKey(d.day);
+      var li = el('li', 'bar-col' + (d.day === todayDay ? ' today' : '') + (d.future ? ' future' : ''));
+      li.setAttribute('role', 'img');
+      li.setAttribute('aria-label', dt.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' }) +
+        ': ' + d.done + ' of ' + d.total + (d.total === 1 ? ' task' : ' tasks') + ' done' + (d.future ? ' (upcoming)' : ''));
+      var well = el('div', 'bar-well');
+      if (d.total) {
+        var tot = el('div', 'bar-total');
+        tot.style.height = Math.max(8, Math.round(d.total / max * 100)) + '%';
+        if (d.done) {
+          var fill = el('div', 'bar-fill');
+          fill.style.height = Math.round(d.done / d.total * 100) + '%';
+          tot.append(fill);
+        }
+        well.append(tot);
+      }
+      li.append(well, el('span', 'bar-n', d.done + '/' + d.total),
+        el('span', 'bar-day', DAY_NAMES[dt.getDay()]), el('span', 'bar-date', String(dt.getDate())));
+      ul.append(li);
+    });
+  }
+
+  function renderHabitStats(cur) {
+    var ul = $('st-habits');
+    ul.textContent = '';
+    if (!cur.habits.length) {
+      ul.append(el('li', 'empty meta', 'No habits yet. Tap + and choose Habit.'));
+      return;
+    }
+    cur.habits.forEach(function (h) {
+      var li = el('li', 'st-habit'), top = el('div', 'st-hrow');
+      top.append(el('span', 'title', h.name), el('span', 'meta',
+        h.eligible ? h.done + ' of ' + h.eligible + (h.eligible === 1 ? ' day' : ' days') + ' \u00B7 ' + h.pct + '%'
+                   : 'Not counted yet'));
+      var track = el('div', 'track'), fill = el('div', 'fill');
+      track.setAttribute('aria-hidden', 'true');
+      fill.style.width = (h.pct || 0) + '%';
+      track.append(fill);
+      li.append(top, track);
+      if (h.eligible > 0 && h.eligible < 7) li.append(el('p', 'meta st-sub', 'Counted for ' + h.eligible + ' of 7 days'));
+      ul.append(li);
+    });
+  }
+
+  function cmpRow(title, noun, now, before) {
+    var li = el('li', 'st-cmp-row'), msg;
+    if (now === null) msg = 'No ' + noun + ' data this week to compare.';
+    else if (before === null) msg = 'No ' + noun + ' data in the previous week, so there is nothing to compare.';
+    else {
+      var d = now - before, a = Math.abs(d);
+      msg = (d === 0 ? 'No change' : (d > 0 ? '\u25B2 Up ' : '\u25BC Down ') + a + (a === 1 ? ' point' : ' points')) +
+        '. ' + now + '% now, ' + before + '% in the previous week.';
+    }
+    li.append(el('span', 'label', title), el('span', 'st-cmp-msg', msg));
+    return li;
+  }
+
+  function renderStats() {
+    var cur = computeWeek(statsWeek);
+    var prev = computeWeek(addDays(statsWeek, -7));
+    var started = statsWeek <= todayDay;
+
+    $('wk-rel').textContent = weekRel(statsWeek);
+    $('wk-range').textContent = fmtRange(cur.start, cur.end);
+    $('wk-prev').disabled = statsWeek <= weekStartOf(MIN_DAY);
+    $('wk-next').disabled = addDays(statsWeek, 7) > MAX_DAY;
+    $('wk-now').disabled = statsWeek === weekStartOf(todayDay);
+
+    var empty = !started || (cur.tTotal === 0 && cur.hElig === 0);
+    $('st-empty').hidden = !empty;
+    $('st-body').hidden = empty;
+    if (empty) {
+      $('st-empty').textContent = started
+        ? 'No tasks or habits were recorded for this week.'
+        : 'This week has not started yet, so there are no statistics.';
+      return;
+    }
+
+    $('st-tdone').textContent = cur.tDone;
+    $('st-ttotal').textContent = cur.tTotal;
+    $('st-tpct').textContent = pctText(cur.tPct);
+    $('st-tpct-s').textContent = cur.tTotal ? '' : 'No tasks';
+    $('st-hpct').textContent = pctText(cur.hPct);
+    $('st-hpct-s').textContent = cur.hElig
+      ? cur.hDone + ' of ' + cur.hElig + (cur.hElig === 1 ? ' habit day' : ' habit days') : 'No habits counted';
+    $('st-opct').textContent = pctText(cur.oPct);
+    $('st-live').hidden = !(cur.end >= todayDay);
+
+    renderChart(cur);
+    renderHabitStats(cur);
+    var cmp = $('st-cmp');
+    cmp.textContent = '';
+    cmp.append(cmpRow('Tasks', 'task', cur.tPct, prev.tPct), cmpRow('Habits', 'habit', cur.hPct, prev.hPct));
+  }
+
+  $('wk-prev').addEventListener('click', function () { statsWeek = addDays(statsWeek, -7); renderStats(); });
+  $('wk-next').addEventListener('click', function () { statsWeek = addDays(statsWeek, 7); renderStats(); });
+  $('wk-now').addEventListener('click', function () { statsWeek = weekStartOf(todayDay); renderStats(); });
+
   function update() {
     var tasks = visibleTasks();
     var td = tasks.filter(function (x) { return x.v.checked; }).length;
@@ -439,6 +621,7 @@
     state.habits.forEach(function (hb) {
       if (habitMeta[hb.id]) habitMeta[hb.id].textContent = 'Streak ' + streakFor(hb.id, selectedDay);
     });
+    renderStats(); // keep the weekly dashboard in step with every change
   }
 
   function renderAll() {
@@ -851,8 +1034,10 @@
     var t = todayKey();
     if (t === todayDay) return;
     var followToday = selectedDay === todayDay;
+    var followWeek = statsWeek === weekStartOf(todayDay); // dashboard follows the current week too
     todayDay = t;
     if (followToday) selectedDay = t;
+    if (followWeek) statsWeek = weekStartOf(t);
   }
   function refresh() {
     if (dlg.open || cal.open || rdlg.open) return; // do not rebuild lists under an open dialog

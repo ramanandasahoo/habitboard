@@ -372,6 +372,48 @@ dialog::backdrop { background: rgba(65, 67, 71, .3); }
 }
 .st-note ul { padding-left: 18px; display: grid; gap: 6px; font-size: .875rem; color: var(--text-2-ui); }
 
+/* Monthly habit calendar */
+.hm-field { margin-top: 12px; }
+.hm-sum {
+  margin-top: 16px; padding: 12px 14px; border-radius: 14px;
+  background: var(--well); box-shadow: var(--sh-in);
+  display: flex; align-items: center; gap: 14px;
+}
+.hm-sum .tv { flex: none; font-size: 1.75rem; }
+.hm-sum-t { min-width: 0; display: grid; gap: 2px; }
+.hm-counts { font-size: .9375rem; font-weight: 600; overflow-wrap: anywhere; }
+.hm-week, .hm-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.hm-week {
+  margin-top: 16px; text-align: center;
+  font-size: .75rem; font-weight: 700; color: var(--text-2-ui);
+}
+.hm-grid { margin-top: 6px; }
+.hm-cell {
+  position: relative; aspect-ratio: 1; min-width: 0; border-radius: 10px;
+  display: grid; grid-template-rows: auto auto; align-content: center; justify-items: center;
+  line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.hm-n { font-size: .8125rem; }
+.hm-mark { min-height: .7rem; font-size: .625rem; font-weight: 700; }
+.hm-done { background: var(--well); box-shadow: var(--sh-in); color: var(--text); font-weight: 700; }
+.hm-missed { background: var(--raise); box-shadow: var(--sh-l1); color: var(--text); }
+.hm-missed .hm-mark { color: var(--status-overdue); }
+.hm-before, .hm-future { color: var(--text-2-ui); box-shadow: inset 0 0 0 1px var(--sh-dark); }
+.hm-cell.today::after {
+  content: ""; position: absolute; inset: -2px; border-radius: 12px;
+  border: 2px solid var(--text); pointer-events: none;
+}
+.hm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; }
+.hm-key {
+  display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px;
+  border-radius: 6px; font-size: .625rem; font-style: normal; font-weight: 700; vertical-align: middle;
+}
+.hm-key.done { background: var(--well); box-shadow: var(--sh-in); color: var(--text); }
+.hm-key.missed { background: var(--raise); box-shadow: var(--sh-l1); color: var(--status-overdue); }
+.hm-key.off { box-shadow: inset 0 0 0 1px var(--sh-dark); }
+.hm-key.today { border: 2px solid var(--text); }
+.hm-note { margin-top: 10px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }

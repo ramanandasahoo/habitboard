@@ -3,7 +3,8 @@
    Version 3 adds backup export and restore.
    Version 4 adds installable app / offline support (see sw.js).
    Version 5 adds a read-only weekly statistics dashboard.
-   Version 6 makes the weekly overall figure the average of the task rate and habit rate. */
+   Version 6 makes the weekly overall figure the average of the task rate and habit rate.
+   Version 7 adds a read-only monthly habit calendar. */
 (function () {
   'use strict';
 
@@ -610,6 +611,148 @@
   $('wk-next').addEventListener('click', function () { statsWeek = addDays(statsWeek, 7); renderStats(); });
   $('wk-now').addEventListener('click', function () { statsWeek = weekStartOf(todayDay); renderStats(); });
 
+  /* ---------- Monthly habit calendar (read-only: never changes saved data) ----------
+     Shows one habit's saved history for one month. For each day:
+       done    = the habit history has that date
+       missed  = the habit already existed and the day is today or earlier, but it was not done
+       before  = the day is before the habit was added (not counted)
+       future  = the day is after today (not counted)
+     This is the same rule the weekly statistics use for habits. */
+  var hmYear = Number(todayDay.slice(0, 4));
+  var hmMonth = Number(todayDay.slice(5, 7)) - 1; // 0 = January
+  var hmHabitId = null;   // the habit being viewed (kept in memory only, never saved)
+  var hmSig = '';         // remembers the habit list so the picker is rebuilt only when it changes
+  var HM_STATUS = {
+    done: 'completed',
+    missed: 'not completed',
+    before: 'not counted, before this habit was added',
+    future: 'not counted, after today'
+  };
+
+  function habitCreatedDay(h) { // the local date the habit was added, or null if that was not saved
+    return (typeof h.createdAt === 'number' && isFinite(h.createdAt)) ? dateKey(new Date(h.createdAt)) : null;
+  }
+  function habitDayState(h, day) {
+    if (day > todayDay) return 'future';
+    if (habitDone(day, h.id)) return 'done';
+    var created = habitCreatedDay(h);
+    return (created === null || day >= created) ? 'missed' : 'before';
+  }
+
+  function computeMonth(h, year, month) {
+    var lead = new Date(year, month, 1, 12).getDay();            // blank cells before the 1st (weeks start on Sunday)
+    var count = new Date(year, month + 1, 0, 12).getDate();      // days in this month (leap years included)
+    var cells = [], done = 0, elig = 0, before = false, future = false;
+    for (var i = 1; i <= count; i++) {
+      var day = dateKey(new Date(year, month, i, 12));
+      var st = habitDayState(h, day);
+      if (st === 'done') { done++; elig++; }
+      else if (st === 'missed') elig++;
+      else if (st === 'before') before = true;
+      else future = true;
+      cells.push({ day: day, n: i, state: st });
+    }
+    return {
+      lead: lead, cells: cells, done: done, eligible: elig, pct: pctOf(done, elig),
+      anyBefore: before, anyFuture: future, noStart: habitCreatedDay(h) === null
+    };
+  }
+
+  function monthsFromNow(y, m) {
+    return (y - Number(todayDay.slice(0, 4))) * 12 + (m - (Number(todayDay.slice(5, 7)) - 1));
+  }
+  function monthRel(n) {
+    if (n === 0) return 'This month';
+    if (n === -1) return 'Last month';
+    if (n === 1) return 'Next month';
+    return n < 0 ? (-n) + ' months ago' : 'In ' + n + ' months';
+  }
+
+  function syncHabitPicker() { // only called when at least one habit exists
+    var sel = $('hm-habit');
+    var sig = state.habits.map(function (h) { return h.id + '\u0001' + h.name; }).join('\u0002');
+    if (sig !== hmSig) {
+      hmSig = sig;
+      sel.textContent = '';
+      state.habits.forEach(function (h) {
+        var o = el('option', '', h.name);
+        o.value = h.id;
+        sel.append(o);
+      });
+    }
+    var found = state.habits.some(function (h) { return h.id === hmHabitId; });
+    if (!found) hmHabitId = state.habits[0].id;
+    sel.value = hmHabitId;
+  }
+
+  function renderMonthCal() {
+    var has = state.habits.length > 0;
+    $('hm-empty').hidden = has;
+    $('hm-body').hidden = !has;
+    if (!has) return;
+
+    syncHabitPicker();
+    var h = state.habits.filter(function (x) { return x.id === hmHabitId; })[0];
+    var m = computeMonth(h, hmYear, hmMonth);
+    var n = monthsFromNow(hmYear, hmMonth);
+    var monthName = new Date(hmYear, hmMonth, 1, 12).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+    $('hm-rel').textContent = monthRel(n);
+    $('hm-title').textContent = monthName;
+    $('hm-prev').disabled = hmYear <= 1970 && hmMonth === 0;
+    $('hm-next').disabled = hmYear >= 2100 && hmMonth === 11;
+    $('hm-now').disabled = n === 0;
+
+    var grid = $('hm-grid');
+    grid.textContent = '';
+    grid.setAttribute('aria-label', h.name + ', ' + monthName);
+    for (var i = 0; i < m.lead; i++) {
+      var gap = el('div', 'hm-cell blank');
+      gap.setAttribute('aria-hidden', 'true');
+      grid.append(gap);
+    }
+    m.cells.forEach(function (c) {
+      var cell = el('div', 'hm-cell hm-' + c.state + (c.day === todayDay ? ' today' : ''));
+      cell.setAttribute('role', 'img');
+      cell.setAttribute('aria-label', fmtLong(c.day) + ': ' + HM_STATUS[c.state] + (c.day === todayDay ? ' (today)' : ''));
+      var mark = el('span', 'hm-mark', c.state === 'done' ? '\u2713' : c.state === 'missed' ? '\u2715' : '');
+      mark.setAttribute('aria-hidden', 'true');
+      cell.append(el('span', 'hm-n', String(c.n)), mark);
+      grid.append(cell);
+    });
+
+    $('hm-pct').textContent = pctText(m.pct);
+    $('hm-counts').textContent = m.done + ' completed \u00B7 ' + m.eligible + ' eligible';
+    var sub = '';
+    if (m.eligible === 0) {
+      sub = m.anyBefore ? 'This habit had not been added yet this month, so no days are counted.'
+                        : 'This month has not started yet, so no days are counted.';
+    } else if (m.anyBefore || m.anyFuture) {
+      sub = 'Days before this habit was added and days after today are not counted.';
+    }
+    $('hm-sub').textContent = sub;
+    $('hm-sub').hidden = sub === '';
+    $('hm-note').hidden = !(m.noStart && m.eligible > 0); // no saved start date: older history may look incomplete
+  }
+
+  function shiftHmMonth(n) {
+    var m = hmMonth + n, y = hmYear;
+    while (m < 0) { m += 12; y--; }
+    while (m > 11) { m -= 12; y++; }
+    if (y < 1970 || y > 2100) return;
+    hmYear = y; hmMonth = m;
+    renderMonthCal();
+  }
+
+  $('hm-habit').addEventListener('change', function () { hmHabitId = $('hm-habit').value; renderMonthCal(); });
+  $('hm-prev').addEventListener('click', function () { shiftHmMonth(-1); });
+  $('hm-next').addEventListener('click', function () { shiftHmMonth(1); });
+  $('hm-now').addEventListener('click', function () {
+    hmYear = Number(todayDay.slice(0, 4));
+    hmMonth = Number(todayDay.slice(5, 7)) - 1;
+    renderMonthCal();
+  });
+
   function update() {
     var tasks = visibleTasks();
     var td = tasks.filter(function (x) { return x.v.checked; }).length;
@@ -631,7 +774,8 @@
     state.habits.forEach(function (hb) {
       if (habitMeta[hb.id]) habitMeta[hb.id].textContent = 'Streak ' + streakFor(hb.id, selectedDay);
     });
-    renderStats(); // keep the weekly dashboard in step with every change
+    renderStats();     // keep the weekly dashboard in step with every change
+    renderMonthCal();  // and the monthly habit calendar
   }
 
   function renderAll() {
@@ -1044,10 +1188,12 @@
     var t = todayKey();
     if (t === todayDay) return;
     var followToday = selectedDay === todayDay;
-    var followWeek = statsWeek === weekStartOf(todayDay); // dashboard follows the current week too
+    var followWeek = statsWeek === weekStartOf(todayDay);  // the weekly dashboard follows the current week
+    var followMonth = monthsFromNow(hmYear, hmMonth) === 0; // and the monthly calendar the current month
     todayDay = t;
     if (followToday) selectedDay = t;
     if (followWeek) statsWeek = weekStartOf(t);
+    if (followMonth) { hmYear = Number(t.slice(0, 4)); hmMonth = Number(t.slice(5, 7)) - 1; }
   }
   function refresh() {
     if (dlg.open || cal.open || rdlg.open) return; // do not rebuild lists under an open dialog

@@ -11,7 +11,7 @@
 'use strict';
 
 var CACHE_PREFIX = 'habitboard-';
-var CACHE_NAME = CACHE_PREFIX + 'app-v3'; // change the number to make every device rebuild its saved copy
+var CACHE_NAME = CACHE_PREFIX + 'app-v4'; // change the number to make every device rebuild its saved copy
 var NETWORK_TIMEOUT_MS = 6000;            // after this long, a saved copy is used if there is one
 var SCOPE_PATH = new URL('./', self.location.href).pathname; // "/habitboard/" on GitHub Pages
 

@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="css/styles.css?v=4">
+<link rel="stylesheet" href="css/styles.css?v=5">
 </head>
 <body>
 <main class="screen">
@@ -158,6 +158,62 @@
     </details>
   </section>
 
+  <section class="panel" aria-labelledby="hm-h">
+    <div class="head">
+      <h2 class="label" id="hm-h">Monthly habit calendar</h2>
+    </div>
+
+    <p class="empty meta" id="hm-empty" hidden>No habits yet. Tap + and choose Habit, and its monthly history will appear here.</p>
+
+    <div id="hm-body">
+      <label class="field hm-field">Habit
+        <select id="hm-habit"></select>
+      </label>
+
+      <div class="wk-nav">
+        <button class="btn nav" id="hm-prev" type="button" aria-label="Previous month">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M15 6l-6 6 6 6"/>
+          </svg>
+        </button>
+        <div class="wk-range-box" aria-live="polite">
+          <span class="label" id="hm-rel">This month</span>
+          <span class="d-full" id="hm-title"></span>
+        </div>
+        <button class="btn nav" id="hm-next" type="button" aria-label="Next month">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 6l6 6-6 6"/>
+          </svg>
+        </button>
+        <button class="btn slim" id="hm-now" type="button">Current month</button>
+      </div>
+
+      <div class="hm-sum" aria-live="polite">
+        <span class="tv" id="hm-pct">&mdash;</span>
+        <span class="hm-sum-t">
+          <span class="hm-counts" id="hm-counts"></span>
+          <span class="meta" id="hm-sub" hidden></span>
+        </span>
+      </div>
+
+      <div class="hm-week" aria-hidden="true">
+        <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+      </div>
+      <div class="hm-grid" id="hm-grid" role="group" aria-label="Habit calendar"></div>
+
+      <p class="meta hm-legend">
+        <span><i class="hm-key done" aria-hidden="true">&#10003;</i>Completed</span>
+        <span><i class="hm-key missed" aria-hidden="true">&#10005;</i>Not completed</span>
+        <span><i class="hm-key off" aria-hidden="true"></i>Not counted</span>
+        <span><i class="hm-key today" aria-hidden="true"></i>Today</span>
+      </p>
+      <p class="meta hm-note">Not counted means the day is before the habit was added, or after today.</p>
+      <p class="meta hm-note" id="hm-note" hidden>This habit has no saved start date, so every past day counts as eligible. Earlier months may look more incomplete than they really were.</p>
+    </div>
+  </section>
+
   <section class="panel" aria-labelledby="bk-h">
     <h2 class="label" id="bk-h">Backup &amp; restore</h2>
     <p class="meta bk-help">Save your tasks, habits and notes to a file, or restore them from one. Everything stays on this device.</p>
@@ -252,6 +308,6 @@
   </div>
 </dialog>
 
-<script src="js/app.js?v=6"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>

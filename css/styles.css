@@ -1,5 +1,6 @@
-/* HabitBoard: soft skeuomorphic design system (light theme) */
+/* HabitBoard: soft skeuomorphic design system (light theme first, dark theme near the end) */
 :root {
+  color-scheme: light;
   --bg: #F3F4F5;
   --panel: #FFFFFF;
   --well: #EEEFF1;
@@ -13,12 +14,23 @@
   --divider: #ECEDEF;
   --status-overdue: #B3473F;
 
+  /* Extra colours: their light values reproduce the original look exactly; the dark theme changes them */
+  --off: var(--sh-dark);                /* unlit dial ticks, empty priority bars, "not counted" days */
+  --hover: #fff;                        /* button background while hovered */
+  --on-text: #fff;                      /* text drawn on a --text coloured background */
+  --hl: #fff;                           /* inner highlight on the dial knob and + button */
+  --shade: rgba(65, 67, 71, .08);       /* inner shade on the dial knob and + button */
+  --ring: rgba(65, 67, 71, .85);        /* outline of the dial knob */
+  --mark-hl: rgba(255, 255, 255, .25);  /* highlight on the dial marker */
+  --rim: transparent;                   /* thin outer edge on raised shapes (used by the dark theme) */
+  --rim-in: transparent;                /* thin inner edge on recessed shapes (used by the dark theme) */
+
   --raise: linear-gradient(145deg, #FFFFFF, #EEEFF1);
-  --sh-l1: 2px 2px 5px var(--sh-dark), -2px -2px 5px var(--sh-light);
-  --sh-l2: 8px 10px 24px var(--sh-dark), -6px -6px 16px var(--sh-light);
+  --sh-l1: 2px 2px 5px var(--sh-dark), -2px -2px 5px var(--sh-light), 0 0 0 1px var(--rim);
+  --sh-l2: 8px 10px 24px var(--sh-dark), -6px -6px 16px var(--sh-light), 0 0 0 1px var(--rim);
   --sh-l3: 6px 8px 16px var(--sh-dark), -5px -5px 12px var(--sh-light),
-           inset 0 1px 0 #fff, inset 0 -2px 3px rgba(65, 67, 71, .08);
-  --sh-in: inset 3px 3px 6px var(--sh-dark), inset -3px -3px 6px var(--sh-light);
+           inset 0 1px 0 var(--hl), inset 0 -2px 3px var(--shade), 0 0 0 1px var(--rim);
+  --sh-in: inset 3px 3px 6px var(--sh-dark), inset -3px -3px 6px var(--sh-light), inset 0 0 0 1px var(--rim-in);
 }
 
 * { box-sizing: border-box; }
@@ -86,19 +98,19 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 .progress { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
 .dial { position: relative; width: 140px; height: 140px; flex: none; }
 #ticks { position: absolute; inset: 0; width: 100%; height: 100%; }
-#ticks line { stroke: var(--sh-dark); stroke-width: 2.5; stroke-linecap: round; }
+#ticks line { stroke: var(--off); stroke-width: 2.5; stroke-linecap: round; }
 #ticks line.on { stroke: var(--progress); }
 .knob {
   position: absolute; inset: 18px; border-radius: 50%;
   background: var(--raise);
-  box-shadow: var(--sh-l3), 0 0 0 1.5px rgba(65, 67, 71, .85);
+  box-shadow: var(--sh-l3), 0 0 0 1.5px var(--ring);
   display: grid; place-items: center;
 }
 .mark { position: absolute; inset: 0; transform: rotate(var(--a, 0deg)); transition: transform 300ms ease; }
 .mark::after {
   content: ""; position: absolute; top: 9px; left: 50%;
   width: 10px; height: 10px; margin-left: -5px; border-radius: 50%;
-  background: var(--text); box-shadow: inset 1px 1px 2px rgba(255, 255, 255, .25);
+  background: var(--text); box-shadow: inset 1px 1px 2px var(--mark-hl);
 }
 .pct { font-size: 2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .summary { flex: 1; min-width: 110px; display: grid; gap: 4px; }
@@ -149,7 +161,7 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 
 /* Priority bars */
 .prio { display: flex; align-items: flex-end; gap: 3px; height: 14px; }
-.prio i { width: 4px; border-radius: 2px; background: var(--sh-dark); }
+.prio i { width: 4px; border-radius: 2px; background: var(--off); }
 .prio i:nth-child(1) { height: 6px; }
 .prio i:nth-child(2) { height: 10px; }
 .prio i:nth-child(3) { height: 14px; }
@@ -227,7 +239,7 @@ h1 { font-size: 1.5rem; font-weight: 700; }
 }
 .btn:active, .add:active { background: var(--well); box-shadow: var(--sh-in); }
 .add:active { transform: scale(.97); }
-@media (hover: hover) { .btn:hover, .add:hover { background: #fff; } }
+@media (hover: hover) { .btn:hover, .add:hover { background: var(--hover); } }
 
 /* Dialogs */
 dialog {
@@ -259,12 +271,12 @@ dialog::backdrop { background: rgba(65, 67, 71, .3); }
 .cal-day.out { opacity: .55; }
 .cal-day.today { background: var(--raise); box-shadow: var(--sh-l1); font-weight: 700; }
 .cal-day:active { background: var(--well); box-shadow: var(--sh-in); }
-.cal-day.sel { background: var(--text); color: #fff; box-shadow: none; font-weight: 700; opacity: 1; }
+.cal-day.sel { background: var(--text); color: var(--on-text); box-shadow: none; font-weight: 700; opacity: 1; }
 .cal-day.has-note::after {
   content: ""; position: absolute; bottom: 5px; left: 50%;
   width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--progress);
 }
-.cal-day.sel.has-note::after { background: #fff; }
+.cal-day.sel.has-note::after { background: var(--on-text); }
 .cal-legend { margin-top: 12px; display: flex; align-items: center; gap: 8px; }
 .cal-legend .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--progress); }
 
@@ -398,7 +410,7 @@ dialog::backdrop { background: rgba(65, 67, 71, .3); }
 .hm-done { background: var(--well); box-shadow: var(--sh-in); color: var(--text); font-weight: 700; }
 .hm-missed { background: var(--raise); box-shadow: var(--sh-l1); color: var(--text); }
 .hm-missed .hm-mark { color: var(--status-overdue); }
-.hm-before, .hm-future { color: var(--text-2-ui); box-shadow: inset 0 0 0 1px var(--sh-dark); }
+.hm-before, .hm-future { color: var(--text-2-ui); box-shadow: inset 0 0 0 1px var(--off); }
 .hm-cell.today::after {
   content: ""; position: absolute; inset: -2px; border-radius: 12px;
   border: 2px solid var(--text); pointer-events: none;
@@ -410,9 +422,46 @@ dialog::backdrop { background: rgba(65, 67, 71, .3); }
 }
 .hm-key.done { background: var(--well); box-shadow: var(--sh-in); color: var(--text); }
 .hm-key.missed { background: var(--raise); box-shadow: var(--sh-l1); color: var(--status-overdue); }
-.hm-key.off { box-shadow: inset 0 0 0 1px var(--sh-dark); }
+.hm-key.off { box-shadow: inset 0 0 0 1px var(--off); }
 .hm-key.today { border: 2px solid var(--text); }
 .hm-note { margin-top: 10px; }
+
+/* Theme switch in the header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.top-text { min-width: 0; }
+.theme-toggle {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; margin-left: auto;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.theme-text { display: grid; text-align: right; line-height: 1.2; }
+
+/* Dark theme: charcoal surfaces, light text. Applied when <html data-theme="dark"> is set. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #232427;
+  --panel: #2B2D31;
+  --well: #1F2023;
+  --text: #E6E7E9;
+  --text-2: #8B9097;
+  --text-2-ui: #AEB2B8;
+  --sh-light: #35373C;
+  --sh-dark: #151618;
+  --progress: #9CA1A8;
+  --accent: #6D7279;
+  --divider: #383A3F;
+  --status-overdue: #E58B83;
+  --off: #4C5056;
+  --hover: #3A3C42;
+  --on-text: #232427;
+  --hl: rgba(255, 255, 255, .07);
+  --shade: rgba(0, 0, 0, .35);
+  --ring: rgba(230, 231, 233, .55);
+  --mark-hl: rgba(0, 0, 0, .3);
+  --rim: rgba(255, 255, 255, .07);
+  --rim-in: rgba(0, 0, 0, .4);
+  --raise: linear-gradient(145deg, #34363B, #2A2C30);
+}
+:root[data-theme="dark"] dialog::backdrop { background: rgba(0, 0, 0, .6); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }

@@ -4,7 +4,8 @@
    Version 4 adds installable app / offline support (see sw.js).
    Version 5 adds a read-only weekly statistics dashboard.
    Version 6 makes the weekly overall figure the average of the task rate and habit rate.
-   Version 7 adds a read-only monthly habit calendar. */
+   Version 7 adds a read-only monthly habit calendar.
+   Version 8 adds a light / dark theme switch (saved separately as habitboard:theme). */
 (function () {
   'use strict';
 
@@ -66,6 +67,38 @@
     if (n === 1) return 'Tomorrow';
     return n < 0 ? (-n) + ' days ago' : 'In ' + n + ' days';
   }
+
+  /* ---------- Theme (light / dark) ----------
+     The choice is saved on its own under 'habitboard:theme' and never touches the app data
+     (habitboard:v1). A small script in index.html applies the saved theme before the page is
+     drawn; this part keeps the header switch in step and saves changes. It uses its own
+     try/catch, so if the browser blocks storage the theme still works until the page closes. */
+  var THEME_KEY = 'habitboard:theme';
+  var THEME_COLORS = { light: '#F3F4F5', dark: '#232427' }; // browser bar colour for each theme
+
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  }
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', THEME_COLORS[t]);
+    var sw = $('theme-sw'), st = $('theme-state');
+    if (sw) sw.checked = t === 'dark';
+    if (st) st.textContent = t === 'dark' ? 'On' : 'Off';
+  }
+  function initTheme() {
+    var saved = null;
+    try { saved = window.localStorage.getItem(THEME_KEY); } catch (e) { saved = null; }
+    applyTheme(saved === 'dark' || saved === 'light' ? saved : currentTheme()); // no saved choice: keep light
+    var sw = $('theme-sw');
+    if (sw) sw.addEventListener('change', function () {
+      var t = sw.checked ? 'dark' : 'light';
+      applyTheme(t);
+      try { window.localStorage.setItem(THEME_KEY, t); } catch (e) { /* not saved; works until the page closes */ }
+    });
+  }
+  initTheme();
 
   /* ---------- Banner (storage and data notices) ---------- */
   var banner = $('banner');

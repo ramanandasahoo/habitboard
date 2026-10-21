@@ -76,3 +76,15 @@ No license has been specified yet. All rights remain with the copyright holder u
 🔒 Privacy
 
 HabitBoard is designed for personal use. Your information is stored locally on your device; clearing browser or app data may erase it. Back up your data regularly.
+
+⚠️ Current Limitations
+
+- Local storage: Data stays in the browser or app on the device where it was created.
+- No cloud sync: Tasks, habits, and notes do not automatically sync between devices.
+- Notifications: Reminder delivery may depend on browser permissions, Android settings, and battery restrictions.
+- Backups: Export a backup regularly to help protect your data.
+- Data recovery: Clearing app or browser data may permanently remove locally stored information if no backup exists.
+
+🤝 Contributions
+
+Suggestions, bug reports, and improvements are welcome. Please test changes before using them with important personal data.

@@ -88,3 +88,15 @@ HabitBoard is designed for personal use. Your information is stored locally on y
 🤝 Contributions
 
 Suggestions, bug reports, and improvements are welcome. Please test changes before using them with important personal data.
+
+💬 Feedback & Suggestions
+
+Have you tried HabitBoard? I'd love to hear from you!
+
+- 🐛 Report a bug or tell me about a problem.
+- 💡 Suggest a feature you'd like to see.
+- ⭐ Share your experience to help improve the app.
+
+👉 "Submit Feedback" (https://forms.gle/Dtvp9nqBp8pFVRLz5)
+
+Your feedback helps make HabitBoard better for everyone. Thank you for trying it!

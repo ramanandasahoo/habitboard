@@ -426,6 +426,16 @@ dialog::backdrop { background: rgba(65, 67, 71, .3); }
 .hm-key.today { border: 2px solid var(--text); }
 .hm-note { margin-top: 10px; }
 
+/* Reminders */
+.rm-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 16px; min-height: 44px; cursor: pointer;
+}
+.rm-row-text { display: grid; line-height: 1.2; }
+.rm-note { margin-top: 10px; }
+.rm-actions { display: grid; gap: 12px; margin-top: 16px; }
+.st-note ol { padding-left: 22px; display: grid; gap: 6px; font-size: .875rem; color: var(--text-2-ui); }
+
 /* Theme switch in the header */
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .top-text { min-width: 0; }

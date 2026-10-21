@@ -47,25 +47,13 @@ HabitBoard is an ongoing personal project. Features and design may evolve over t
 
 No license has been specified yet. All rights remain with the copyright holder unless a license is added to this repository.
 
+## 📸 Screenshots
 
-📸 Screenshots
+### Main Dashboard
+![HabitBoard Dashboard](./Screenshot_20261021-191936.Chrome.png)
 
-Main Dashboard
+### Weekly Statistics
+![HabitBoard Weekly Statistics](./Screenshot_20261021-191949.Chrome.png)
 
-"HabitBoard Main Dashboard" (Screenshot_20261021-191936.Chrome.png)
-
-Weekly Statistics
-
-"HabitBoard Weekly Statistics" (Screenshot_20261021-191949.Chrome.png)
-
-Monthly Habit Calendar
-
-"HabitBoard Monthly Habit Calendar" (Screenshot_20261021-191958.Chrome.png)
-
----
-
-🌐 Live Demo
-
-"Open HabitBoard" (https://ramanandasahoo.github.io/habitboard/)
-
-Try the app directly in your browser. On compatible Android devices, you can also install it for offline use.
+### Monthly Habit Calendar
+![HabitBoard Monthly Habit Calendar](./Screenshot_20261021-191958.Chrome.png)

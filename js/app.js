@@ -5,7 +5,8 @@
    Version 5 adds a read-only weekly statistics dashboard.
    Version 6 makes the weekly overall figure the average of the task rate and habit rate.
    Version 7 adds a read-only monthly habit calendar.
-   Version 8 adds a light / dark theme switch (saved separately as habitboard:theme). */
+   Version 8 adds a light / dark theme switch (saved separately as habitboard:theme).
+   Version 9 adds best-effort daily reminders and a calendar (.ics) reminder file. */
 (function () {
   'use strict';
 
@@ -786,6 +787,291 @@
     renderMonthCal();
   });
 
+  /* ---------- Reminders (best effort) ----------
+     Settings are kept on their own: under 'habitboard:reminders' in localStorage, plus a copy in
+     IndexedDB because the service worker cannot read localStorage. They are never part of
+     habitboard:v1 and never included in a backup. Notifications always use the same generic
+     text and never contain task titles or notes.
+     A reminder is "due" once per day, from the chosen time until 4 hours later. It is checked while
+     HabitBoard is open, and Chrome may also run a background check (Periodic Background Sync).
+     Chrome and Android decide if and when that happens, so delivery cannot be guaranteed. */
+  var REM_KEY = 'habitboard:reminders';
+  var REM_DB = 'habitboard-reminders';
+  var REM_STORE = 'settings';
+  var REM_ID = 'config';
+  var REM_TAG = 'habitboard-daily-check';
+  var REM_WINDOW_MIN = 240;      // due from the chosen time until 4 hours later
+  var REM_BODY = 'Time to check your tasks and habits.';
+  var rem = { enabled: false, time: '08:00', lastShown: '' };
+  var remBusy = false;
+
+  function validTime(t) { return typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t); }
+  function cleanRem(raw) {
+    var r = { enabled: false, time: '08:00', lastShown: '' };
+    if (isPlainObject(raw)) {
+      r.enabled = raw.enabled === true;
+      if (validTime(raw.time)) r.time = raw.time;
+      if (typeof raw.lastShown === 'string' && DATE_RE.test(raw.lastShown)) r.lastShown = raw.lastShown;
+    }
+    return r;
+  }
+  function remStartMinutes(t) { return Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)); }
+  function reminderDue(cfg, now) {
+    if (!cfg || cfg.enabled !== true || !validTime(cfg.time)) return false;
+    if (cfg.lastShown === dateKey(now)) return false;
+    var start = remStartMinutes(cfg.time);
+    var mins = now.getHours() * 60 + now.getMinutes();
+    return mins >= start && mins < start + REM_WINDOW_MIN;
+  }
+  function fmtClock(t) { // 'HH:MM' shown the way this phone formats times
+    return new Date(2000, 0, 1, Number(t.slice(0, 2)), Number(t.slice(3, 5)))
+      .toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+  function withTimeout(p, ms) { // resolves with null if p takes too long
+    return Promise.race([p, new Promise(function (resolve) { setTimeout(function () { resolve(null); }, ms); })]);
+  }
+
+  function remDb(op, value) { // op is 'get' or 'put'; always resolves, with null when anything goes wrong
+    return new Promise(function (resolve) {
+      try {
+        if (!window.indexedDB) { resolve(null); return; }
+        var req = window.indexedDB.open(REM_DB, 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore(REM_STORE); };
+        req.onerror = function () { resolve(null); };
+        req.onsuccess = function () {
+          try {
+            var db = req.result;
+            var tx = db.transaction(REM_STORE, op === 'put' ? 'readwrite' : 'readonly');
+            var os = tx.objectStore(REM_STORE);
+            if (op === 'put') {
+              tx.oncomplete = function () { db.close(); resolve(value); };
+              tx.onerror = tx.onabort = function () { resolve(null); };
+              os.put(value, REM_ID);
+            } else {
+              var q = os.get(REM_ID);
+              q.onsuccess = function () { db.close(); resolve(q.result || null); };
+              q.onerror = function () { resolve(null); };
+            }
+          } catch (e) { resolve(null); }
+        };
+      } catch (e) { resolve(null); }
+    });
+  }
+  function loadRem() { // IndexedDB first (the service worker may have updated lastShown), then localStorage
+    var local = null;
+    try { local = JSON.parse(window.localStorage.getItem(REM_KEY)); } catch (e) { local = null; }
+    return remDb('get').then(function (fromDb) { rem = cleanRem(fromDb || local); });
+  }
+  function saveRem() {
+    try { window.localStorage.setItem(REM_KEY, JSON.stringify(rem)); } catch (e) { /* not saved there */ }
+    return remDb('put', cleanRem(rem));
+  }
+
+  function notifSupported() { return typeof Notification !== 'undefined' && 'serviceWorker' in navigator; }
+  function notifPermission() { return notifSupported() ? Notification.permission : 'unsupported'; }
+  function ensurePermission() { // asks only when the choice has not been made yet; resolves with the final state
+    if (!notifSupported()) return Promise.resolve('unsupported');
+    if (Notification.permission !== 'default') return Promise.resolve(Notification.permission);
+    try {
+      return Promise.resolve(Notification.requestPermission()).then(function (p) { return p || Notification.permission; });
+    } catch (e) { return Promise.resolve(Notification.permission); }
+  }
+  function showNotice(body) { // always shown through the service worker (required on Android)
+    return withTimeout(navigator.serviceWorker.ready, 4000).then(function (reg) {
+      if (!reg) throw new Error('no service worker');
+      return reg.showNotification('HabitBoard', { body: body, icon: 'icon-192.png', tag: 'habitboard-daily' });
+    });
+  }
+  function syncBackgroundCheck() { // asks Chrome for a periodic background check while reminders are on
+    if (!notifSupported()) return Promise.resolve('unavailable');
+    return withTimeout(navigator.serviceWorker.ready, 4000).then(function (reg) {
+      if (!reg || !reg.periodicSync) return 'unavailable';
+      if (rem.enabled && Notification.permission === 'granted') {
+        return reg.periodicSync.register(REM_TAG, { minInterval: 60 * 60 * 1000 }).then(function () { return 'registered'; });
+      }
+      return reg.periodicSync.unregister(REM_TAG).then(function () { return 'off'; });
+    }).catch(function () { return 'unavailable'; });
+  }
+
+  function checkReminderDue() { // shows at most one reminder per day, inside the 4 hour window
+    if (remBusy) return;
+    remBusy = true;
+    remDb('get').then(function (fromDb) {
+      var latest = cleanRem(fromDb).lastShown;       // the service worker may already have shown today's
+      if (latest > rem.lastShown) rem.lastShown = latest;
+      var now = new Date();
+      if (!reminderDue(rem, now) || notifPermission() !== 'granted') return null;
+      return showNotice(REM_BODY).then(function () {
+        rem.lastShown = dateKey(now);
+        return saveRem();
+      });
+    }).catch(function () { /* not shown: the next check inside the window tries again */ })
+      .then(function () { remBusy = false; });
+  }
+
+  /* Calendar reminder: a small .ics file with a repeating daily event and alarm */
+  function icsEscape(t) {
+    return String(t).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  }
+  function icsFold(line) { // lines longer than 75 characters continue on the next line after a space
+    var out = [], rest = line;
+    while (rest.length > 75) { out.push(rest.slice(0, 75)); rest = ' ' + rest.slice(75); }
+    out.push(rest);
+    return out.join('\r\n');
+  }
+  function icsUtc(d) {
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' +
+      pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + pad(d.getUTCSeconds()) + 'Z';
+  }
+  function icsLocal(d) { // local clock time without a zone, so it follows the phone's time zone
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+  }
+  function buildIcs(time, now, appUrl) {
+    var h = Number(time.slice(0, 2)), m = Number(time.slice(3, 5));
+    var nowMin = now.getHours() * 60 + now.getMinutes();
+    var first = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (h * 60 + m > nowMin ? 0 : 1), h, m, 0);
+    var end = new Date(first.getTime() + 15 * 60000);
+    var lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//HabitBoard//Daily reminder//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      'UID:habitboard-daily-reminder@habitboard',
+      'DTSTAMP:' + icsUtc(now),
+      'DTSTART:' + icsLocal(first),
+      'DTEND:' + icsLocal(end),
+      'RRULE:FREQ=DAILY',
+      'SUMMARY:' + icsEscape('HabitBoard: check your tasks and habits'),
+      'DESCRIPTION:' + icsEscape('Open HabitBoard to review your tasks and habits for today.'),
+      'TRANSP:TRANSPARENT'
+    ];
+    if (appUrl) lines.push('URL:' + appUrl);
+    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEscape('HabitBoard reminder'), 'TRIGGER:PT0S', 'END:VALARM',
+      'END:VEVENT', 'END:VCALENDAR');
+    return lines.map(icsFold).join('\r\n') + '\r\n';
+  }
+  function downloadIcs() {
+    var appUrl = '';
+    try { appUrl = new URL('./', window.location.href).href; } catch (e) { appUrl = ''; }
+    var blob = new Blob([buildIcs(rem.time, new Date(), appUrl)], { type: 'text/calendar;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = el('a');
+    a.href = url;
+    a.download = 'habitboard-daily-reminder.ics';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+  }
+
+  function remSay(text, kind) {
+    var m = $('rm-msg');
+    m.textContent = text;
+    m.dataset.kind = kind;
+    m.hidden = false;
+  }
+  function showBgStatus(s) {
+    var text = s === 'registered' ? 'Background check requested. Chrome and Android decide if and when it runs.'
+      : s === 'unavailable' ? 'Background checks are not available here, so a reminder is only checked while HabitBoard is open or running.' : '';
+    $('rm-bg').textContent = text;
+    $('rm-bg').hidden = text === '';
+  }
+  function renderReminders() {
+    var perm = notifPermission();
+    var on = rem.enabled && perm === 'granted';
+    $('rm-sw').checked = on;
+    $('rm-state').textContent = on ? 'On' : 'Off';
+    $('rm-time').value = rem.time;
+    $('rm-test').disabled = perm === 'unsupported';
+    var t;
+    if (perm === 'unsupported') t = 'This browser cannot show notifications here. The calendar reminder below still works.';
+    else if (perm === 'denied') t = 'Notifications are blocked for HabitBoard. Allow them in Chrome site settings or Android app notification settings, then turn this on.';
+    else if (on) t = 'On: a reminder is due every day from ' + fmtClock(rem.time) + ' (best effort).';
+    else if (perm === 'granted') t = 'Permission granted. Turn this on to get a daily reminder.';
+    else t = 'Turn this on to allow notifications. Android will ask for permission.';
+    $('rm-perm').textContent = t;
+  }
+
+  function initReminders() {
+    if (!$('rm-sw') || !$('rm-time') || !$('rm-test') || !$('rm-ics') || !$('rm-msg') ||
+        !$('rm-state') || !$('rm-perm') || !$('rm-bg')) return; // an older page without the panel: do nothing
+
+    $('rm-sw').addEventListener('change', function () {
+      if (!$('rm-sw').checked) {
+        rem.enabled = false;
+        saveRem();
+        renderReminders();
+        remSay('Reminders are off.', 'ok');
+        syncBackgroundCheck().then(showBgStatus);
+        return;
+      }
+      ensurePermission().then(function (perm) {
+        if (perm !== 'granted') {
+          rem.enabled = false;
+          saveRem();
+          renderReminders();
+          remSay(perm === 'unsupported' ? 'This browser cannot show notifications here, so reminders stay off.'
+            : perm === 'denied' ? 'Notifications are blocked, so reminders stay off. Allow them in Chrome site settings or Android app notification settings.'
+            : 'Permission was not granted, so reminders stay off.', 'error');
+          return;
+        }
+        var now = new Date();
+        var passed = now.getHours() * 60 + now.getMinutes() >= remStartMinutes(rem.time);
+        rem.enabled = true;
+        rem.lastShown = passed ? dateKey(now) : ''; // switching on after today's time: the first reminder is tomorrow
+        saveRem();
+        renderReminders();
+        remSay('Reminders are on. The first one is due ' + (passed ? 'tomorrow' : 'today') + ' from ' + fmtClock(rem.time) +
+          '. Delivery is best effort and cannot be guaranteed when HabitBoard is closed.', 'ok');
+        syncBackgroundCheck().then(showBgStatus);
+      });
+    });
+
+    $('rm-time').addEventListener('change', function () {
+      var v = $('rm-time').value;
+      if (!validTime(v)) { $('rm-time').value = rem.time; return; }
+      rem.time = v;
+      saveRem();
+      renderReminders();
+      remSay('Reminder time set to ' + fmtClock(v) + '. The calendar file uses this time too.', 'ok');
+    });
+
+    $('rm-test').addEventListener('click', function () {
+      ensurePermission().then(function (perm) {
+        renderReminders();
+        if (perm !== 'granted') {
+          remSay(perm === 'denied' ? 'Notifications are blocked. Allow them in Chrome site settings or Android app notification settings.'
+            : 'Permission was not granted, so no test notification was sent.', 'error');
+          return null;
+        }
+        return showNotice('This is a test notification from HabitBoard.').then(function () {
+          remSay('Test notification sent. If you do not see it, check Android notification settings for Chrome or HabitBoard.', 'ok');
+        });
+      }).catch(function () { remSay('Could not send the test notification.', 'error'); });
+    });
+
+    $('rm-ics').addEventListener('click', function () {
+      try {
+        downloadIcs();
+        remSay('Calendar file created: habitboard-daily-reminder.ics. Open it from your Downloads, choose your calendar app and tap Add or Save. The steps are below.', 'ok');
+      } catch (e) { remSay('Could not create the calendar file.', 'error'); }
+    });
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') { renderReminders(); checkReminderDue(); }
+    });
+    setInterval(checkReminderDue, 30000);
+
+    loadRem().then(function () {
+      renderReminders();
+      if (rem.enabled) syncBackgroundCheck().then(showBgStatus);
+      checkReminderDue();
+    });
+  }
+
   function update() {
     var tasks = visibleTasks();
     var td = tasks.filter(function (x) { return x.v.checked; }).length;
@@ -1265,4 +1551,5 @@
   buildTicks();
   renderAll();
   registerServiceWorker();
+  initReminders();
 })();

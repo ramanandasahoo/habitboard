@@ -57,3 +57,22 @@ No license has been specified yet. All rights remain with the copyright holder u
 
 ### Monthly Habit Calendar
 ![HabitBoard Monthly Habit Calendar](./Screenshot_20261021-191958.Chrome.png)
+
+
+📲 How to Install
+
+1. Open the "HabitBoard live demo" (https://ramanandasahoo.github.io/habitboard/) in Google Chrome.
+2. Open Chrome's menu (three dots).
+3. Select Install app or Add to Home screen, if available.
+4. Open HabitBoard from your home screen.
+
+💾 Data & Offline Use
+
+- HabitBoard stores your data locally in your browser.
+- Your tasks and habits do not automatically sync across devices.
+- Use the Backup & Restore feature to save a copy of your data.
+- After installation and the initial setup, supported features can work offline.
+
+🔒 Privacy
+
+HabitBoard is designed for personal use. Your information is stored locally on your device; clearing browser or app data may erase it. Back up your data regularly.

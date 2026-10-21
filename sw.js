@@ -11,7 +11,7 @@
 'use strict';
 
 var CACHE_PREFIX = 'habitboard-';
-var CACHE_NAME = CACHE_PREFIX + 'app-v5'; // change the number to make every device rebuild its saved copy
+var CACHE_NAME = CACHE_PREFIX + 'app-v6'; // change the number to make every device rebuild its saved copy
 var NETWORK_TIMEOUT_MS = 6000;            // after this long, a saved copy is used if there is one
 var SCOPE_PATH = new URL('./', self.location.href).pathname; // "/habitboard/" on GitHub Pages
 
@@ -123,3 +123,83 @@ function networkFirst(event, request) {
     });
   });
 }
+
+/* ---------- Daily reminder (best effort) ----------
+   The page saves the reminder settings in IndexedDB, because a service worker cannot read
+   localStorage. When Chrome runs a periodic background check, this shows ONE generic notification
+   if today's reminder is due. It never reads tasks, habits or notes, and never touches
+   habitboard:v1. Chrome and Android decide if and when a background check runs, so this cannot
+   be guaranteed. */
+var REM_DB = 'habitboard-reminders';
+var REM_STORE = 'settings';
+var REM_ID = 'config';
+var REM_TAG = 'habitboard-daily-check';
+var REM_WINDOW_MIN = 240; // a reminder is due from the chosen time until 4 hours later
+
+function remPad(n) { return n < 10 ? '0' + n : String(n); }
+function remDay(d) { return d.getFullYear() + '-' + remPad(d.getMonth() + 1) + '-' + remPad(d.getDate()); }
+function remValidTime(t) { return typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t); }
+
+function reminderDue(cfg, now) {
+  if (!cfg || cfg.enabled !== true || !remValidTime(cfg.time)) return false;
+  if (cfg.lastShown === remDay(now)) return false;
+  var start = Number(cfg.time.slice(0, 2)) * 60 + Number(cfg.time.slice(3, 5));
+  var mins = now.getHours() * 60 + now.getMinutes();
+  return mins >= start && mins < start + REM_WINDOW_MIN;
+}
+
+function remDb(op, value) { // op is 'get' or 'put'; always resolves, with null when anything goes wrong
+  return new Promise(function (resolve) {
+    try {
+      var req = self.indexedDB.open(REM_DB, 1);
+      req.onupgradeneeded = function () { req.result.createObjectStore(REM_STORE); };
+      req.onerror = function () { resolve(null); };
+      req.onsuccess = function () {
+        try {
+          var db = req.result;
+          var tx = db.transaction(REM_STORE, op === 'put' ? 'readwrite' : 'readonly');
+          var os = tx.objectStore(REM_STORE);
+          if (op === 'put') {
+            tx.oncomplete = function () { db.close(); resolve(value); };
+            tx.onerror = tx.onabort = function () { resolve(null); };
+            os.put(value, REM_ID);
+          } else {
+            var q = os.get(REM_ID);
+            q.onsuccess = function () { db.close(); resolve(q.result || null); };
+            q.onerror = function () { resolve(null); };
+          }
+        } catch (e) { resolve(null); }
+      };
+    } catch (e) { resolve(null); }
+  });
+}
+
+function remShow() {
+  return self.registration.showNotification('HabitBoard', {
+    body: 'Time to check your tasks and habits.', // fixed generic text: never task titles or notes
+    icon: 'icon-192.png',
+    tag: 'habitboard-daily'
+  });
+}
+
+self.addEventListener('periodicsync', function (event) {
+  if (event.tag !== REM_TAG) return;
+  event.waitUntil(remDb('get').then(function (cfg) {
+    var now = new Date();
+    if (!reminderDue(cfg, now) || self.Notification.permission !== 'granted') return null;
+    return remShow().then(function () {
+      cfg.lastShown = remDay(now);
+      return remDb('put', cfg);
+    });
+  }).catch(function () { /* nothing to do: the next background check tries again */ }));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+    for (var i = 0; i < list.length; i++) {
+      if ('focus' in list[i]) return list[i].focus();
+    }
+    return self.clients.openWindow(self.registration.scope);
+  }));
+});

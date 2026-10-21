@@ -25,7 +25,7 @@
   } catch (e) { /* storage unavailable: keep the light theme */ }
 })();
 </script>
-<link rel="stylesheet" href="css/styles.css?v=6">
+<link rel="stylesheet" href="css/styles.css?v=7">
 </head>
 <body>
 <main class="screen">
@@ -236,6 +236,46 @@
     </div>
   </section>
 
+  <section class="panel" aria-labelledby="rm-h">
+    <div class="head">
+      <h2 class="label" id="rm-h">Reminders</h2>
+    </div>
+    <p class="meta rm-note">Notifications from HabitBoard are best effort. Android and Chrome decide when background checks run, so a reminder can be late or missing while HabitBoard is closed. For a dependable alarm, add the daily calendar reminder below.</p>
+
+    <label class="rm-row">
+      <span class="rm-row-text">
+        <span class="label">Notifications</span>
+        <span class="meta" id="rm-state">Off</span>
+      </span>
+      <input type="checkbox" class="sw" id="rm-sw" role="switch" aria-label="Daily notification reminder">
+    </label>
+
+    <label class="field">Reminder time
+      <input type="time" id="rm-time" value="08:00">
+    </label>
+
+    <p class="meta rm-note" id="rm-perm"></p>
+    <p class="meta rm-note" id="rm-bg" hidden></p>
+
+    <div class="rm-actions">
+      <button class="btn" id="rm-test" type="button">Send test notification</button>
+      <button class="btn" id="rm-ics" type="button">Add daily reminder to calendar (.ics)</button>
+    </div>
+    <p class="bk-msg" id="rm-msg" role="status" aria-live="polite" hidden></p>
+
+    <details class="st-note">
+      <summary>How to add the calendar reminder</summary>
+      <ol>
+        <li>Choose your reminder time above, then tap &ldquo;Add daily reminder to calendar (.ics)&rdquo;. A file named habitboard-daily-reminder.ics is downloaded.</li>
+        <li>Open it: tap the download notification, or open Files &rarr; Downloads and tap the file.</li>
+        <li>Choose your calendar app (for example Google Calendar) and tap Add or Save. The event repeats every day at your time.</li>
+        <li>Open the new event once and check it has a notification at the time of the event. Some calendar apps ignore the alarm inside the file and use their own default reminder, so add one if needed.</li>
+        <li>To change the time later: delete that event, change the time here, and download the file again.</li>
+      </ol>
+    </details>
+    <p class="meta rm-note">Notifications always use the same generic text. They never include your task names or notes. Reminder settings stay on this device and are not part of backups.</p>
+  </section>
+
   <section class="panel" aria-labelledby="bk-h">
     <h2 class="label" id="bk-h">Backup &amp; restore</h2>
     <p class="meta bk-help">Save your tasks, habits and notes to a file, or restore them from one. Everything stays on this device.</p>
@@ -330,6 +370,6 @@
   </div>
 </dialog>
 
-<script src="js/app.js?v=8"></script>
+<script src="js/app.js?v=9"></script>
 </body>
 </html>
